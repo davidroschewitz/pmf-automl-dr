@@ -9,6 +9,11 @@ import gplvm
 from utils import transform_forward, transform_backward
 import bo
 
+#mine
+import pickle
+import os
+import json
+
 torch.set_default_tensor_type(torch.FloatTensor)
 
 fn_data = 'all_normalized_accuracy_with_pipelineID.csv'
@@ -152,18 +157,40 @@ def random_search(bo_n_iters, ytest, speed=1, do_print=False):
 
 if __name__=='__main__':
 
+    EXPERIMENT = 'output/tst'
+    fn_checkpoint = EXPERIMENT + '/checkpoint'
+
+
+
     # train and evaluation settings
-    Q = 20
+    Q = 15 #20
     batch_size = 50
-    n_epochs = 300
-    lr = 1e-7
+    n_epochs = 5 #300
+    lr = 5e-7 #1e-7
     N_max = 1000
     bo_n_init = 5
-    bo_n_iters = 200
-    save_checkpoint = False
-    fn_checkpoint = None
-    checkpoint_period = 50
+    bo_n_iters = 50 #200
+    save_checkpoint = True
+    checkpoint_period = 5
 
+    settings = {'Q': Q,
+                'batch_size': batch_size,
+                'n_epochs': n_epochs,
+                'lr': lr,
+                'N_max': N_max,
+                'bo_n_init': bo_n_init,
+                'bo_n_iters': bo_n_iters,
+                }
+
+    settings_file = fn_checkpoint + 'settings.json'
+    os.makedirs(os.path.dirname(settings_file), exist_ok=True)
+
+    f = open(settings_file, "w")
+    json.dump(settings, f)
+    f.close()
+
+
+    print('training starts')
     # train
     Ytrain, Ytest, Ftrain, Ftest = get_data()
     maxiter = int(Ytrain.shape[1]/batch_size*n_epochs)
@@ -189,15 +216,21 @@ if __name__=='__main__':
 
         if save_checkpoint and not (it % checkpoint_period):
             torch.save(m.state_dict(), fn_checkpoint + '_it%d.pt' % it)
+            f = open(EXPERIMENT + "/X"+ '_it%d.pkl' % it, "wb")
+            pickle.dump(m.X.detach().numpy(),f)
+            f.close()
 
         print('it=%d, f=%g, varn=%g, t: %g'
               % (it, logpr_list[-1], transform_forward(m.variance), t_list[-1]))
+
+    print('setting up initial space')
 
     # create initial latent space with PCA, first imputing missing observations
     imp = sklearn.impute.SimpleImputer(missing_values=np.nan, strategy='mean')
     X = sklearn.decomposition.PCA(Q).fit_transform(
                                             imp.fit(Ytrain).transform(Ytrain))
 
+    print('model def')
     # define model
     kernel = kernels.Add(kernels.RBF(Q, lengthscale=None), kernels.White(Q))
     m = gplvm.GPLVM(Q, X, Ytrain, kernel, N_max=N_max, D_max=batch_size)
@@ -210,6 +243,9 @@ if __name__=='__main__':
     m = train(m, optimizer, f_callback=f_callback, f_stop=f_stop)
     if save_checkpoint:
         torch.save(m.state_dict(), fn_checkpoint + '_itFinal.pt')
+        f = open(EXPERIMENT + "/X" + '_itFinal.pkl', "wb")
+        pickle.dump(m.X.detach().numpy(),f)
+        f.close()
 
     # evaluate model and random baselines
     print('evaluating...')
@@ -222,14 +258,14 @@ if __name__=='__main__':
         regrets_random4x = np.zeros((bo_n_iters, Ytest.shape[1]))
 
         for d in np.arange(Ytest.shape[1]):
-            print(d)
+            print(d, '/', Ytest.shape[1])
             ybest = np.nanmax(Ytest[:,d])
             regrets_random1x[:,d] = ybest - random_search(bo_n_iters,
                                                           Ytest[:,d], speed=1)
             regrets_random2x[:,d] = ybest - random_search(bo_n_iters,
                                                           Ytest[:,d], speed=2)
-            regrets_random4x[:,d] = ybest - random_search(bo_n_iters,
-                                                          Ytest[:,d], speed=4)
+            #regrets_random4x[:,d] = ybest - random_search(bo_n_iters,
+            #                                              Ytest[:,d], speed=4)
             regrets_automl[:,d] = ybest - bo_search(m, bo_n_init, bo_n_iters,
                                                     Ytrain, Ftrain, Ftest[d,:],
                                                     Ytest[:,d])
@@ -237,5 +273,9 @@ if __name__=='__main__':
         results = {'pmf': regrets_automl,
                    'random1x': regrets_random1x,
                    'random2x': regrets_random2x,
-                   'random4x': regrets_random4x,
+                   #'random4x': regrets_random4x,
                   }
+
+        f = open(EXPERIMENT + "/results.pkl","wb")
+        pickle.dump(results,f)
+        f.close()
