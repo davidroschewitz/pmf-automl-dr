@@ -94,14 +94,14 @@ class GPLVM(nn.Module):
             self.D = Y.shape[1]
             for d in range(self.D):
                 ix = np.where(np.invert(np.isnan(Y[:,d])))[0]
-                y = Sparse1DTensor(Y[ix,d], torch.tensor(ix))
+                y = Sparse1DTensor(Y[ix,d], ix)
                 self.GPs.append(GP(dim, self.X, y, kernel, **kwargs))
         elif isinstance(Y, list):
             # assumes col indexing starts at 0 and is (integer-)continuous
             self.D = int(np.max(Y[2])) + 1
             for d in range(self.D):
                 ix = np.where(Y[2]==d)[0]
-                y = Sparse1DTensor(Y[0][ix], torch.tensor(Y[1][ix]))
+                y = Sparse1DTensor(Y[0][ix], Y[1][ix])
                 self.GPs.append(GP(dim, self.X, y, kernel, **kwargs))
         else:
             assert False, 'Bad Y input'

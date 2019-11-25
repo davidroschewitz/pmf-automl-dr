@@ -21,6 +21,13 @@ fn_train_ix = 'ids_train.csv'
 fn_test_ix = 'ids_test.csv'
 fn_data_feats = 'data_feats_featurized.csv'
 
+SPARSE = False
+NEW_TEST = False
+
+if NEW_TEST:
+    fn_train_ix = 'ids_train_new.csv'
+    fn_test_ix = 'ids_test_new.csv'
+
 def get_data():
     """
     returns the train/test splits of the dataset as N x D matrices and the
@@ -33,7 +40,19 @@ def get_data():
     pipeline_ids = df['Unnamed: 0'].tolist()
     dataset_ids = df.columns.tolist()[1:]
     dataset_ids = [int(dataset_ids[i]) for i in range(len(dataset_ids))]
+
+    if SPARSE:
+        print('sparsifying Y')
+        prob = 0.85
+        for i in df.columns.tolist()[1:]:
+            indices = np.random.choice(df.shape[0], int(df.shape[0] * prob), replace=False)
+            array = df.loc[:, i]
+            array[indices] = np.nan
+            df.loc[:, i] = array
+
+
     Y = df.values[:,1:].astype(np.float64)
+    print('missing values ratio:', np.sum(np.sum(np.isnan(Y)) / (Y.shape[0] * Y.shape[1])))
 
     ids_train = np.loadtxt(fn_train_ix).astype(int).tolist()
     ids_test = np.loadtxt(fn_test_ix).astype(int).tolist()
@@ -100,9 +119,8 @@ def bo_search(m, bo_n_init, bo_n_iters, Ytrain, Ftrain, ftest, ytest,
     ix_candidates = np.where(np.invert(np.isnan(ytest)))[0].tolist()
     ybest_list = []
 
-    ix_init = bo.init_l1(Ytrain, Ftrain, ftest).tolist()
-    for l in range(bo_n_init):
-        ix = ix_init[l]
+    ix_init = bo.init_l1(Ytrain, Ftrain, ftest)
+    for ix in ix_init:
         if not np.isnan(ytest[ix]):
             preds.add(m.X[ix], ytest[ix])
             ix_evaled.append(ix)
@@ -157,19 +175,17 @@ def random_search(bo_n_iters, ytest, speed=1, do_print=False):
 
 if __name__=='__main__':
 
-    EXPERIMENT = 'output/tst'
-    fn_checkpoint = EXPERIMENT + '/checkpoint'
-
-
+    EXPERIMENT = 'output/main_experiment'
+    fn_checkpoint = EXPERIMENT + '/'
 
     # train and evaluation settings
-    Q = 15 #20
+    Q = 10 #20
     batch_size = 50
-    n_epochs = 5 #300
-    lr = 5e-7 #1e-7
+    n_epochs = 10 #300
+    lr = 2e-7 #1e-7
     N_max = 1000
     bo_n_init = 5
-    bo_n_iters = 50 #200
+    bo_n_iters = 100 #200
     save_checkpoint = True
     checkpoint_period = 5
 
@@ -220,8 +236,12 @@ if __name__=='__main__':
             pickle.dump(m.X.detach().numpy(),f)
             f.close()
 
-        print('it=%d, f=%g, varn=%g, t: %g'
-              % (it, logpr_list[-1], transform_forward(m.variance), t_list[-1]))
+        log_string = 'it=%d, f=%g, varn=%g, t: %g' % (it, logpr_list[-1], transform_forward(m.variance), t_list[-1])
+        print(log_string)
+
+        f = open(EXPERIMENT + "/log.txt", "a+")
+        f.write(log_string)
+        f.close()
 
     print('setting up initial space')
 
@@ -279,3 +299,11 @@ if __name__=='__main__':
         f = open(EXPERIMENT + "/results.pkl","wb")
         pickle.dump(results,f)
         f.close()
+
+'''
+leonhard:
+module load python_gpu/3.7.1
+
+bsub -n 4 -W 4:00 -R "rusage[mem=4000, ngpus_excl_p=1]"  python run.py
+
+'''

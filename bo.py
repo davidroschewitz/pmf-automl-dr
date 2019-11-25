@@ -22,6 +22,9 @@ def init_l1(Ytrain, Ftrain, ftest, n_init=5):
     ave_pipeline_ranks = ranks.mean(axis=1)
     ix_init = ix_nonnan_pipelines[np.argsort(ave_pipeline_ranks)[::-1]]
 
+    if len(ix_init) < n_init:
+        ix_init = ix_init.tolist() + np.random.randint(0, Ytrain.shape[1], n_init).tolist()
+
     return ix_init[:n_init]
 
 class BO(gplvm.GP):
