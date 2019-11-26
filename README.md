@@ -1,7 +1,12 @@
-# pmf-automl
-Data and Python code related to the paper "Probabilistic matrix factorization for automated machine learning", NeurIPS, 2018.
+# pmf-automl-dr
+A fork and investigation of the original repository associated with the paper "Probabilistic matrix factorization for automated machine learning", NeurIPS, 2018.
 
-Rishit Sheth, 12/21/2018
+This study was performed in the scope of the Advanced Topics in Machine Learning Seminar of HS2019 at ETH Zürich. Our findings corroborate some of the authors' results, and contradict others. Please note that little time was spent on code readability, for which I apologize. 
+
+David Roschewitz, 25.11.2019.
+
+## Modifications from the original repository
+Most notable are the additions of logging, as well as modifications in some select lines to allow for sparsification, and dealing with consequences of such alteration. New train/test split IDs were also added. Furthermore, a visualization Notebook has been created. 
 
 ## Data
 
