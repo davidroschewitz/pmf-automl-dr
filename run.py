@@ -175,7 +175,7 @@ def random_search(bo_n_iters, ytest, speed=1, do_print=False):
 
 if __name__=='__main__':
 
-    EXPERIMENT = 'output/main_experiment'
+    EXPERIMENT = 'output/main_corroboration'
     fn_checkpoint = EXPERIMENT + '/'
 
     # train and evaluation settings
